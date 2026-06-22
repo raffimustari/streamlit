@@ -14,15 +14,15 @@ st.set_page_config(
 )
 
 # ==========================================
-# 2. FUNGSI UNTUK LOAD MODEL (DUMMY/ASLI)
+# 2. FUNGSI UNTUK LOAD MODEL
 # ==========================================
-# Hapus komentar (uncomment) baris di bawah ini jika model kamu sudah di-export (.pkl)
-# @st.cache_resource
-# def load_model():
-#     with open('model_air.pkl', 'rb') as file:
-#         model = pickle.load(file)
-#     return model
-# model = load_model()
+@st.cache_resource
+def load_model():
+    with open('model_air.pkl', 'rb') as file:
+        model = pickle.load(file)
+    return model
+
+model = load_model()
 
 # ==========================================
 # 3. SIDEBAR (NAVIGASI)
@@ -61,27 +61,20 @@ if menu == "🏠 Prediksi Kelayakan Air":
     # Tombol Prediksi
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("🔍 Prediksi Kelayakan", type="primary", use_container_width=True):
-        # Mengumpulkan data dari form
+        
+        # 1. Mengumpulkan data dari form
         input_data = pd.DataFrame({
             'ph': [ph], 'Hardness': [hardness], 'Solids': [solids],
             'Chloramines': [chloramines], 'Sulfate': [sulfate], 'Conductivity': [conductivity],
             'Organic_carbon': [organic_carbon], 'Trihalomethanes': [trihalomethanes], 'Turbidity': [turbidity]
         })
         
-        # PROSES PREDIKSI (Jika model asli sudah ada, gunakan kode di bawah ini)
-        # prediction = model.predict(input_data)
-        # result = prediction[0]
-        
-        # --- LOGIKA DUMMY (Hapus jika sudah pakai model ML) ---
+        # 2. PROSES PREDIKSI MENGGUNAKAN MODEL ML ASLI
         with st.spinner('Memproses data dengan Machine Learning...'):
-            # Dummy logika sederhana (Contoh: pH normal air minum 6.5 - 8.5)
-            if 6.5 <= ph <= 8.5 and turbidity < 5.0 and sulfate < 250:
-                result = 1 # 1 artinya Layak
-            else:
-                result = 0 # 0 artinya Tidak Layak
-        # -----------------------------------------------------
+            prediction = model.predict(input_data)
+            result = prediction[0]
 
-        # Menampilkan Hasil
+        # 3. Menampilkan Hasil
         st.markdown("---")
         if result == 1:
             st.success("✅ **HASIL: AIR AMAN DIMINUM (Potable)**")
