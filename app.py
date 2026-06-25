@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 import joblib
+import os
+from sklearn.preprocessing import StandardScaler
 
 # Mengatur konfigurasi halaman
 st.set_page_config(page_title="Prediksi Kelayakan Air Minum", layout="centered")
@@ -11,17 +13,36 @@ st.write("""
 Aplikasi ini menggunakan Machine Learning dengan metode **Stacking Ensemble** untuk mengklasifikasikan apakah air aman untuk diminum atau tidak.
 """)
 
-# Load Model dan Scaler sekaligus
+# Load Model dan Scaler Otomatis
 @st.cache_resource
 def load_objects():
-    try:
+    model = None
+    scaler = None
+    
+    # 1. Cek Model (mencari model_air.pkl sesuai di GitHub Anda)
+    if os.path.exists("model_air.pkl"):
+        model = joblib.load("model_air.pkl")
+    elif os.path.exists("model_stacking.pkl"):
         model = joblib.load("model_stacking.pkl")
-        scaler = joblib.load("scaler.pkl") # Memuat scaler
-        return model, scaler
-    except FileNotFoundError as e:
-        st.error(f"⚠️ File tidak ditemukan: {e}")
-        st.warning("Pastikan file 'model_stacking.pkl' dan 'scaler.pkl' sudah ada di dalam folder proyek Anda.")
-        return None, None
+    else:
+        st.error("⚠️ ERROR: File model ('model_air.pkl') tidak ditemukan di GitHub Anda.")
+        
+    # 2. Cek Scaler (Jika tidak ada scaler.pkl, buat otomatis!)
+    if os.path.exists("scaler.pkl"):
+        scaler = joblib.load("scaler.pkl")
+    else:
+        try:
+            # Mengunduh dataset dan membuat scaler langsung di latar belakang
+            url = "https://raw.githubusercontent.com/sahilrahman12/Water-Potability-Prediction/main/water_potability.csv"
+            df = pd.read_csv(url)
+            df.fillna(df.mean(), inplace=True)
+            fitur = ['ph', 'Hardness', 'Solids', 'Chloramines', 'Sulfate', 'Conductivity', 'Organic_carbon', 'Trihalomethanes', 'Turbidity']
+            scaler = StandardScaler()
+            scaler.fit(df[fitur])
+        except Exception as e:
+            st.error("⚠️ Gagal membuat scaler otomatis.")
+            
+    return model, scaler
 
 model, scaler = load_objects()
 
@@ -40,7 +61,7 @@ def user_input_features():
     trihalomethanes = st.sidebar.number_input("8. Trihalometana (Trihalomethanes - μg/L)", min_value=0.0, max_value=130.0, value=66.0)
     turbidity = st.sidebar.number_input("9. Kekeruhan (Turbidity - NTU)", min_value=0.0, max_value=10.0, value=4.0)
 
-    # PERBAIKAN: Huruf besar/kecil disesuaikan persis dengan error di screenshot
+    # Nama kolom persis seperti dataset
     data = {
         'ph': ph,
         'Hardness': hardness,
@@ -67,11 +88,10 @@ st.write("---")
 if st.button("Lakukan Prediksi"):
     if model is not None and scaler is not None:
         try:
-            # Mengubah input menjadi format numpy array menggunakan .values 
-            # (Ini adalah trik paling ampuh agar scikit-learn tidak cerewet soal nama kolom)
+            # Gunakan .values agar sklearn tidak cerewet soal nama kolom
             input_scaled = scaler.transform(input_df.values)
             
-            # Melakukan prediksi
+            # Prediksi
             prediction = model.predict(input_scaled)
             
             st.subheader("Hasil Prediksi:")
@@ -83,7 +103,6 @@ if st.button("Lakukan Prediksi"):
                 st.write("Berdasarkan parameter yang dimasukkan, air ini berbahaya dan membutuhkan perawatan lebih lanjut.")
                 
         except Exception as e:
-            # Jika menggunakan .values masih error, kita gunakan dataframe aslinya
             try:
                 input_scaled = scaler.transform(input_df)
                 prediction = model.predict(input_scaled)
