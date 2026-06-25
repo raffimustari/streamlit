@@ -8,7 +8,7 @@ st.set_page_config(page_title="Prediksi Kelayakan Air Minum", layout="centered")
 # Judul Aplikasi
 st.title("💧 Prediksi Kelayakan Air Minum")
 st.write("""
-Aplikasi ini menggunakan Machine Learning dengan metode **Stacking Ensemble (XGBoost + LightGBM + CatBoost)** untuk mengklasifikasikan apakah air aman untuk diminum atau tidak.
+Aplikasi ini menggunakan Machine Learning dengan metode **Stacking Ensemble** untuk mengklasifikasikan apakah air aman untuk diminum atau tidak.
 """)
 
 # Load Model dan Scaler sekaligus
@@ -40,17 +40,17 @@ def user_input_features():
     trihalomethanes = st.sidebar.number_input("8. Trihalometana (Trihalomethanes - μg/L)", min_value=0.0, max_value=130.0, value=66.0)
     turbidity = st.sidebar.number_input("9. Kekeruhan (Turbidity - NTU)", min_value=0.0, max_value=10.0, value=4.0)
 
-    # PERBAIKAN: Semua kunci (nama kolom) diubah menjadi HURUF KECIL sesuai permintaan model
+    # PERBAIKAN: Huruf besar/kecil disesuaikan persis dengan error di screenshot
     data = {
         'ph': ph,
-        'hardness': hardness,
-        'solids': solids,
-        'chloramines': chloramines,
-        'sulfate': sulfate,
-        'conductivity': conductivity,
-        'organic_carbon': organic_carbon,
-        'trihalomethanes': trihalomethanes,
-        'turbidity': turbidity
+        'Hardness': hardness,
+        'Solids': solids,
+        'Chloramines': chloramines,
+        'Sulfate': sulfate,
+        'Conductivity': conductivity,
+        'Organic_carbon': organic_carbon,
+        'Trihalomethanes': trihalomethanes,
+        'Turbidity': turbidity
     }
     features = pd.DataFrame(data, index=[0])
     return features
@@ -67,10 +67,11 @@ st.write("---")
 if st.button("Lakukan Prediksi"):
     if model is not None and scaler is not None:
         try:
-            # 1. SCALING DATA INPUT (Agar nilai masuk akal bagi model)
-            input_scaled = scaler.transform(input_df)
+            # Mengubah input menjadi format numpy array menggunakan .values 
+            # (Ini adalah trik paling ampuh agar scikit-learn tidak cerewet soal nama kolom)
+            input_scaled = scaler.transform(input_df.values)
             
-            # 2. PREDIKSI DATA YANG SUDAH DI-SCALE
+            # Melakukan prediksi
             prediction = model.predict(input_scaled)
             
             st.subheader("Hasil Prediksi:")
@@ -79,11 +80,17 @@ if st.button("Lakukan Prediksi"):
                 st.write("Berdasarkan parameter yang dimasukkan, kualitas air ini aman untuk dikonsumsi.")
             else:
                 st.error("❌ **Air TIDAK LAYAK MINUM (Not Potable)**")
-                st.write("Berdasarkan parameter yang dimasukkan, air ini berbahaya dan membutuhkan perawatan lebih lanjut sebelum dikonsumsi.")
+                st.write("Berdasarkan parameter yang dimasukkan, air ini berbahaya dan membutuhkan perawatan lebih lanjut.")
                 
-                # Catatan tambahan untuk pengguna jika TDS terlalu tinggi
-                if input_df['solids'][0] > 1000:
-                    st.info("💡 **Analisis:** Meskipun parameter lain mungkin normal, nilai **Total Padatan Terlarut (Solids)** air ini sangat tinggi (lebih dari standar aman 500-1000 ppm), sehingga model mengklasifikasikannya sebagai tidak layak minum.")
-                    
         except Exception as e:
-            st.error(f"Terjadi kesalahan saat memproses data: {e}")
+            # Jika menggunakan .values masih error, kita gunakan dataframe aslinya
+            try:
+                input_scaled = scaler.transform(input_df)
+                prediction = model.predict(input_scaled)
+                st.subheader("Hasil Prediksi:")
+                if prediction[0] == 1:
+                    st.success("✅ **Air LAYAK MINUM (Potable)**")
+                else:
+                    st.error("❌ **Air TIDAK LAYAK MINUM (Not Potable)**")
+            except Exception as e_inner:
+                st.error(f"Terjadi kesalahan saat memproses data: {e_inner}")
